@@ -3,11 +3,14 @@ import path from 'path'
 import createVitePlugins from './vite/plugins'
 
 const baseUrl = 'http://localhost:8080' // 后端接口
+const robotUrl = 'http://localhost:8000' // 机器人控制服务地址
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode, command }) => {
   const env = loadEnv(mode, process.cwd())
   const { VITE_APP_ENV } = env
+  // 机器人控制服务代理目标（可通过 .env 覆盖）
+  const robotTarget = env.VITE_APP_ROBOT_CONTROL_URL || robotUrl
   return {
     // 部署生产环境和开发环境下的URL。
     // 默认情况下，vite 会假设你的应用是被部署在一个域名的根路径上
@@ -24,6 +27,10 @@ export default defineConfig(({ mode, command }) => {
       },
       // https://cn.vitejs.dev/config/#resolve-extensions
       extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json', '.vue']
+    },
+    // 依赖预构建：three 为按需加载的大体积依赖，提前预构建可加快机器人控制台首屏
+    optimizeDeps: {
+      include: ['three']
     },
     // 打包配置
     build: {
@@ -56,6 +63,13 @@ export default defineConfig(({ mode, command }) => {
          '^/v3/api-docs/(.*)': {
           target: baseUrl,
           changeOrigin: true,
+        },
+        // 机器人控制服务代理（HTTP + WebSocket），前端使用相对地址 /robot-api 访问
+        '/robot-api': {
+          target: robotTarget,
+          changeOrigin: true,
+          ws: true,
+          rewrite: (p) => p.replace(/^\/robot-api/, '')
         }
       }
     },
